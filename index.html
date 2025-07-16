@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>A-Frame Scene</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="movement.js"></script>
+    <script src="script.js"></script>
+    <style>
+        /* Updated touch controls styles */
+        .touch-controls {
+            position: fixed;
+            bottom: 80px;
+            z-index: 999;
+            touch-action: none;
+        }
+
+        #movement-pad {
+            bottom: 20px;
+            left: 100px;
+            width: 160px;
+            height: 160px;
+        }
+
+        #elevation-pad {
+            right: 30px;
+            width: 50px;
+            height: 120px;
+        }
+
+        .touch-button {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(145deg, rgba(0, 255, 255, 0.2), rgba(0, 128, 255, 0.3));
+            border: 2px solid rgba(0, 255, 255, 0.6);
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.8);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .touch-button:active {
+            background: linear-gradient(145deg, rgba(0, 128, 255, 0.4), rgba(0, 255, 255, 0.3));
+            transform: scale(0.95);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        /* Adjust WASD button positions to be closer */
+        #w-btn { top: 0; left: 57px; }
+        #s-btn { bottom: 0; left: 57px; }
+        #a-btn { left: 0; top: 57px; }
+        #d-btn { right: 0; top: 57px; }
+
+        /* Adjust Q/E button positions */
+        #up-btn { top: 0; }
+        #down-btn { bottom: 0; }
+
+        /* Hide touch controls on desktop */
+        @media (min-width: 1024px) {
+            .touch-controls {
+                display: none;
+            }
+        }
+
+        /* New HUD Styles */
+        /* === FLIGHT HUD CSS STYLES === */
+        #movement-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 200px;
+            height: 200px;
+            z-index: 10000;
+        }
+
+        #flight-hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            font-family: monospace;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+            overflow: hidden;
+        }
+
+        .brujula-fija {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 40px;
+            width: 75%;
+            border-top: 1px solid #00ffff33;
+            backdrop-filter: blur(4px);
+        }
+
+        .brujula-fija::before,
+        .brujula-fija::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 10%;
+            height: 100%;
+            background: linear-gradient(to right, rgba(0,255,255,0.2), transparent);
+            z-index: 2;
+        }
+
+        .brujula-fija::after {
+            right: 0;
+            left: auto;
+            background: linear-gradient(to left, rgba(0,255,255,0.2), transparent);
+        }
+
+        .brujula-tick {
+            position: absolute;
+            top: 0;
+            width: 1px;
+            height: 12px;
+            background: #00ffffaa;
+        }
+
+        .brujula-label {
+            position: absolute;
+            top: 12px;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #00ffffaa;
+        }
+
+        .horizonte {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 25%;
+            height: 2px;
+            background: #00ffff;
+            transform: translateX(-50%);
+        }
+
+        .horizonte::before,
+        .horizonte::after {
+            content: '';
+            position: absolute;
+            width: 20%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, rgba(0,255,255,0.4));
+            top: 0;
+        }
+
+        .horizonte::after {
+            right: 0;
+            left: auto;
+            background: linear-gradient(to left, transparent, rgba(0,255,255,0.4));
+        }
+
+        .altitud-escala {
+            position: absolute;
+            top: 12.5%;
+            left: 30px;
+            height: 75%;
+            width: 40px;
+        }
+
+        .altitud-marca {
+            position: absolute;
+            left: 0;
+            width: 20px;
+            height: 1px;
+            background: #00ffff88;
+            transition: width 0.3s;
+        }
+
+        .altitud-texto {
+            position: absolute;
+            left: 25px;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #00ffffcc;
+            transition: color 0.3s;
+        }
+
+        .velocidad-info {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            background: rgba(0,0,0,0.2);
+            padding: 5px 10px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- New HUD Elements -->
+
+    <div id="flight-hud">
+        <div class="brujula-fija">
+            <div class="brujula-tick" style="left:0px;"></div>
+            <div class="brujula-label" style="left:0px;">0°</div>
+        </div>
+        <div class="horizonte"></div>
+        <div class="altitud-escala">
+            <div class="altitud-marca" style="top:0%;"></div>
+            <div class="altitud-texto" style="top:0%;">100</div>
+        </div>
+        <div class="velocidad-info">
+            MACH 0.00 | 0 km/h | PITCH 0° 
+        </div>
+    </div>
+
+    <!-- Touch Controls -->
+    <div id="movement-pad" class="touch-controls">
+        <div id="w-btn" class="touch-button" style="top: 0; left: 57px;">W</div>
+        <div id="s-btn" class="touch-button" style="bottom: 0; left: 57px;">S</div>
+        <div id="a-btn" class="touch-button" style="left: 0; top: 57px;">A</div>
+        <div id="d-btn" class="touch-button" style="right: 0; top: 57px;">D</div>
+    </div>
+
+    <div id="elevation-pad" class="touch-controls">
+        <div id="up-btn" class="touch-button" style="top: 0;">Q</div>
+        <div id="down-btn" class="touch-button" style="bottom: 0;">E</div>
+    </div>
+
+    <a-scene>
+        <!-- Ambiente -->
+        <a-sky color="#000000"></a-sky>
+
+        <!-- Camera rig with proximity sensor AND WASD controls -->
+        <a-entity position="0 1.83 0" movement-controls="fly: true">
+            <a-camera id="camera" proximity-sensor movement-tracker
+                     wasd-controls="acceleration: 50" 
+                     look-controls>
+                <a-text id="proximity-text" value="" position="0 0.1 -1" scale="0.5 0.5 0.5" align="center"
+                    color="#fff" visible="false"></a-text>
+            </a-camera>
+        </a-entity>
+
+        <!-- Objetos -->
+        <a-box position="0 1 -7.25" rotation="0 0 0" color="#4CC3D9" scale="4 0.5 4"></a-box>
+        <a-cylinder id="target-sphere" position="0 1 -7.25" radius="1.25" color="#EF2D5E"></a-cylinder>
+
+        <!-- Edificio -->
+        <a-entity position="-32 -2.9 -58" scale="1 1 1" gltf-model="2.glb" shadow="cast: true; receive: false">
+        </a-entity>
+        <a-entity position="0.2 1 -9.1" scale="1 1 1" gltf-model="man1.glb" shadow="cast: true; receive: false">
+        </a-entity>
+        <a-entity position="0.2 1 -9.1" scale="1 1 1" gltf-model="man2.glb" shadow="cast: true; receive: false">
+        </a-entity>
+
+        <!-- Enhanced Screen Displays -->
+        <!-- 1 -->
+        <a-entity position="-8 3 -6" rotation="0 90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 1\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+        <!-- 2 -->
+        <a-entity position="-8 3 -3" rotation="0 90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 2\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+        <!-- 3 -->
+        <a-entity position="-8 3 0" rotation="0 90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 3\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <!-- 4 -->
+        <a-entity position="-8 3 3" rotation="0 90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 4\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <!-- 5 -->
+        <a-entity position="-8 3 6" rotation="0 90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 5\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <!-- 6 -->
+        <a-entity position="8 3 -6" rotation="0 -90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 6\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+        <!-- 7 -->
+        <a-entity position="8 3 -3" rotation="0 -90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 7\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <!-- 8 -->
+        <a-entity position="8 3 0" rotation="0 -90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 8\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <!-- 9 -->
+        <a-entity position="8 3 3" rotation="0 -90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 9\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <!-- 10 -->
+        <a-entity position="8 3 6" rotation="0 -90 0" look-at-camera>
+            <a-plane width="2" height="4" material="color: #0563f0; opacity: 0.2; metalness: 1; roughness: 0.2">
+                <a-entity position="0 0.7 0.01"
+                    text="value: Screen 10\nStandby; color: cyan; align: center; width: 2"></a-entity>
+                <a-box width="2" height="0.1" depth="0.05" position="0 2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+                <a-box width="2" height="0.1" depth="0.05" position="0 -2 0"
+                    material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
+            </a-plane>
+        </a-entity>
+
+        <!-- Iluminación -->
+        <a-light type="spot" color="#ffdb9d" intensity="1" position="0 4.4 0" angle="180" penumbra="0.1" distance="25"
+            decay="1" cast-shadow="true" shadow="mapSize: 1024; bias: -0.0001; camera-near: 0.01; camera-far: 0.2">
+            <a-sphere radius="0.1" color="#ffdb9d" material="emissive: #fff6dd; emissiveIntensity: 1.5"></a-sphere>
+        </a-light>
+        <a-light type="spot" color="#ffdb9d" intensity="1" rotation="0 180 0" position="0 4.4 0" angle="180"
+            penumbra="0.1" distance="25" decay="1" cast-shadow="true"
+            shadow="mapSize: 1024; bias: -0.0001; camera-near: 0.01; camera-far: 0.2">
+            <a-sphere radius="0.1" color="#ffdb9d" material="emissive: #fff6dd; emissiveIntensity: 1.5"></a-sphere>
+        </a-light>
+        <a-light type="spot" color="#0080ff" intensity="0.5" rotation="0 90 0" position="0 1.7 -8" angle="180"
+            penumbra="0.1" distance="25" decay="1" cast-shadow="true"
+            shadow="mapSize: 1024; bias: -0.0001; camera-near: 0.01; camera-far: 0.2">
+        </a-light>
+    </a-scene>
+</body>
+</html>
