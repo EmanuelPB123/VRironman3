@@ -4,9 +4,10 @@
     <title>A-Frame Scene</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="movement.js"></script>
+    <script src="projectile-system.js"></script>
     <script src="script.js"></script>
     <style>
-         /* Updated touch controls styles */
+        /* Updated touch controls styles */
         .touch-controls {
             position: fixed;
             bottom: 80px;
@@ -68,6 +69,9 @@
         @media (min-width: 1024px) {
             .touch-controls {
                 display: none;
+            }
+            #weapon-status {
+                display: block;
             }
         }
 
@@ -201,7 +205,21 @@
             background: rgba(0,0,0,0.2);
             padding: 5px 10px;
             border-radius: 10px;
-        }    
+        }
+
+        #weapon-status {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            font-size: 14px;
+            background: rgba(0,0,0,0.2);
+            padding: 5px 10px;
+            border-radius: 10px;
+            display: none; /* Hidden by default, shown on desktop via media query */
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            width: 15px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -220,6 +238,7 @@
         <div class="velocidad-info">
             MACH 0.00 | 0 km/h | PITCH 0° 
         </div>
+        <div id="weapon-status">WEAPON: STANDBY</div>
     </div>
 
     <!-- Touch Controls -->
@@ -233,6 +252,11 @@
     <div id="elevation-pad" class="touch-controls">
         <div id="up-btn" class="touch-button" style="top: 0;">Q</div>
         <div id="down-btn" class="touch-button" style="bottom: 0;">E</div>
+    </div>
+
+    <!-- Shoot Button -->
+    <div id="shoot-pad" class="touch-controls" style="right: 175px; bottom: 130px;">
+        <div id="shoot-btn" class="touch-button" style="background: linear-gradient(145deg, rgba(255, 0, 100, 0.3), rgba(255, 0, 50, 0.4)); border-color: rgba(255, 100, 100, 0.8); color: #ffffff; font-size: 14px; width: 60px; height: 60px;">Z</div>
     </div>
 
     <a-scene>
@@ -254,18 +278,11 @@
         <a-cylinder id="target-sphere" position="0 1 -7.25" radius="1.25" color="#EF2D5E"></a-cylinder>
 
         <!-- Edificio -->
-        <a-entity position="-32 -2.9 -58" scale="1 1 1" gltf-model="1.glb" shadow="cast: true; receive: false">
-        </a-entity>
         <a-entity position="-32 -2.9 -58" scale="1 1 1" gltf-model="2.glb" shadow="cast: true; receive: false">
         </a-entity>
         <a-entity position="0.2 1 -9.1" scale="1 1 1" gltf-model="man1.glb" shadow="cast: true; receive: false">
         </a-entity>
         <a-entity position="0.2 1 -9.1" scale="1 1 1" gltf-model="man2.glb" shadow="cast: true; receive: false">
-        </a-entity>
-        <a-entity position="0.2 1.5 -6.5" scale="0.05 0.05 0.05" gltf-model="iron.glb" shadow="cast: true; receive: false">
-        </a-entity>
-        <a-entity position="0.2 2.5 -1" scale="0.0001 0.0001 0.0001" gltf-model="CR.glb"
-        shadow="cast: true; receive: false">
         </a-entity>
 
         <!-- Enhanced Screen Displays -->
@@ -385,6 +402,9 @@
                     material="color: #858585; metalness: 0.8; roughness: 0.2"></a-box>
             </a-plane>
         </a-entity>
+
+        <!-- Add projectile system -->
+        <a-entity id="projectile-system" projectile-system></a-entity>
 
         <!-- Iluminación -->
         <a-light type="spot" color="#ffdb9d" intensity="1" position="0 4.4 0" angle="180" penumbra="0.1" distance="25"
