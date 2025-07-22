@@ -1,5 +1,5 @@
 AFRAME.registerComponent('proximity-sensor', {
-    init: function () {
+    init: function() {
         this.camera = document.querySelector('#camera');
         this.textElement = document.querySelector('#proximity-text');
         this.sphere = document.querySelector('#target-sphere');
@@ -7,6 +7,12 @@ AFRAME.registerComponent('proximity-sensor', {
         this.moveSpeed = 0.1;
         this.controlsEnabled = false;
         this.wasInRange = false;
+
+        // Add new audio properties for thruster sound
+        this.audioCtx = null;
+        this.thrusterSoundBuffer = null;
+        this.thrusterSoundSource = null;
+        this.thrusterGainNode = null;
 
         // Add new properties for smooth camera movement
         this.cameraVelocity = 0;
@@ -34,11 +40,15 @@ AFRAME.registerComponent('proximity-sensor', {
 
         // Setup touch controls
         this.setupTouchControls();
+        
+        // Setup audio
+        this.initAudio();
 
         // Add initialization for acceleration properties
         this.currentAcceleration = 50;
         this.targetAcceleration = 50;
         this.accelerationRate = 10;
+        this.activationTime = 0;
 
         // Add velocity calculation properties
         this.lastPosition = new THREE.Vector3();
@@ -52,40 +62,89 @@ AFRAME.registerComponent('proximity-sensor', {
         this.verticalVelocityBuffer = [];
         this.lastHeight = 0;
 
-        // Add key listeners for WASD controls
+        // Setup keyboard listeners
         document.addEventListener('keydown', (event) => {
             const key = event.key.toLowerCase();
-            if (!this.controlsEnabled) return;
-            if (key === 'q' || key === 'e') {
-                this.keys[key] = true;
+            if (key === 'q') {
+                this.keys.q = true;
+            } else if (key === 'e') {
+                this.keys.e = true;
             }
-            // Track WASD keys
             if (this.wasdControls.hasOwnProperty(key)) {
                 this.wasdControls[key] = true;
             }
         });
-
+        
         document.addEventListener('keyup', (event) => {
             const key = event.key.toLowerCase();
-            if (key === 'q' || key === 'e') {
-                this.keys[key] = false;
+            if (key === 'q') {
+                this.keys.q = false;
+            } else if (key === 'e') {
+                this.keys.e = false;
             }
-            // Track WASD keys and reset acceleration when all are released
             if (this.wasdControls.hasOwnProperty(key)) {
                 this.wasdControls[key] = false;
-                // Check if all WASD keys are released
-                if (!Object.values(this.wasdControls).some(value => value)) {
-                    this.targetAcceleration = 50;
-                    this.currentAcceleration = 50;
-                    this.camera.setAttribute('wasd-controls', 'acceleration: 50');
-                }
             }
         });
-
-        this.hudText = null; // Remove this since we're not using it anymore
+    },
+    
+    initAudio: function() {
+        // User interaction is required to start AudioContext
+        const startAudio = () => {
+            if (this.audioCtx) return;
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            this.loadSound('thruster.mp3', (buffer) => { this.thrusterSoundBuffer = buffer; });
+            document.body.removeEventListener('mousedown', startAudio);
+            document.body.removeEventListener('touchstart', startAudio);
+            document.body.removeEventListener('keydown', startAudio);
+        };
+        document.body.addEventListener('mousedown', startAudio);
+        document.body.addEventListener('touchstart', startAudio);
+        document.body.addEventListener('keydown', startAudio);
     },
 
-    setupTouchControls: function () {
+    loadSound: function(url, callback) {
+        if (!this.audioCtx) return;
+        fetch(url)
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => this.audioCtx.decodeAudioData(arrayBuffer))
+            .then(audioBuffer => {
+                callback(audioBuffer);
+            })
+            .catch(e => console.error(`Error loading sound: ${url}`, e));
+    },
+
+    startThrusterSound: function() {
+        if (!this.audioCtx || !this.thrusterSoundBuffer || this.thrusterSoundSource) return;
+        if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+
+        this.thrusterSoundSource = this.audioCtx.createBufferSource();
+        this.thrusterSoundSource.buffer = this.thrusterSoundBuffer;
+        this.thrusterSoundSource.loop = true;
+
+        this.thrusterGainNode = this.audioCtx.createGain();
+        this.thrusterGainNode.gain.value = 0; // Start silent, will be updated in tick
+
+        this.thrusterSoundSource.connect(this.thrusterGainNode);
+        this.thrusterGainNode.connect(this.audioCtx.destination);
+        this.thrusterSoundSource.start(0);
+    },
+
+    stopThrusterSound: function() {
+        if (this.thrusterSoundSource) {
+            this.thrusterSoundSource.stop();
+            this.thrusterSoundSource = null;
+            this.thrusterGainNode = null;
+        }
+    },
+
+    shootProjectile: function() {
+        // This function is no longer needed as the projectile system handles its own shooting logic.
+    },
+    
+    setupTouchControls: function() {
         // WASD controls
         const wasdButtons = ['w', 'a', 's', 'd'];
         wasdButtons.forEach(key => {
@@ -155,7 +214,7 @@ AFRAME.registerComponent('proximity-sensor', {
         touchEnd(downBtn, 'down');
     },
 
-    tick: function () {
+    tick: function() {
         // Get the camera rig's world position
         const cameraRig = this.camera.parentElement;
         const currentPosition = new THREE.Vector3();
@@ -365,6 +424,19 @@ AFRAME.registerComponent('proximity-sensor', {
                     z: cameraRig.getAttribute('position').z
                 });
             }
+
+            // Update thruster sound volume
+            if (this.thrusterGainNode) {
+                const maxSpeedKmh = 1240;
+                const maxSpeedMs = maxSpeedKmh / 3.6; // ~344.44 m/s
+                
+                // Calculate speed ratio relative to the speed where sound should be minimal
+                const speedRatio = Math.min(this.currentVelocity / maxSpeedMs, 1.0);
+                
+                // Volume decreases as speed increases. Max volume 0.4, min volume near 0.
+                const volume = (1.0 - speedRatio) * 0.1;
+                this.thrusterGainNode.gain.setValueAtTime(volume, this.audioCtx.currentTime);
+            }
         }
 
         // Toggle controls when entering range
@@ -372,6 +444,12 @@ AFRAME.registerComponent('proximity-sensor', {
             this.controlsEnabled = !this.controlsEnabled;
             // Reset velocity when toggling controls
             this.cameraVelocity = 0;
+            // Toggle thruster sound
+            if (this.controlsEnabled) {
+                this.startThrusterSound();
+            } else {
+                this.stopThrusterSound();
+            }
         }
 
         // Only update proximity text when needed
