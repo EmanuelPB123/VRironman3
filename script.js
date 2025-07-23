@@ -93,7 +93,7 @@ AFRAME.registerComponent('proximity-sensor', {
         const startAudio = () => {
             if (this.audioCtx) return;
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            this.loadSound('thruster.mp3', (buffer) => { this.thrusterSoundBuffer = buffer; });
+            this.loadSound('thruster.MP3', (buffer) => { this.thrusterSoundBuffer = buffer; });
             document.body.removeEventListener('mousedown', startAudio);
             document.body.removeEventListener('touchstart', startAudio);
             document.body.removeEventListener('keydown', startAudio);
@@ -434,7 +434,7 @@ AFRAME.registerComponent('proximity-sensor', {
                 const speedRatio = Math.min(this.currentVelocity / maxSpeedMs, 1.0);
                 
                 // Volume decreases as speed increases. Max volume 0.4, min volume near 0.
-                const volume = (1.0 - speedRatio) * 0.1;
+                const volume = (1.0 - speedRatio) * 0.4;
                 this.thrusterGainNode.gain.setValueAtTime(volume, this.audioCtx.currentTime);
             }
         }
