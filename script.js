@@ -93,7 +93,7 @@ AFRAME.registerComponent('proximity-sensor', {
         const startAudio = () => {
             if (this.audioCtx) return;
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            this.loadSound('thruster.MP3', (buffer) => { this.thrusterSoundBuffer = buffer; });
+            this.loadSound('thruster.mp3', (buffer) => { this.thrusterSoundBuffer = buffer; });
             document.body.removeEventListener('mousedown', startAudio);
             document.body.removeEventListener('touchstart', startAudio);
             document.body.removeEventListener('keydown', startAudio);
